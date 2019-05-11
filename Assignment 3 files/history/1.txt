@@ -1,0 +1,5 @@
+addrList = (struct in_addr **) gethostbyname(buf)->h_addr_list;
+
+			for(int i=0; addrList[i]!=NULL; i++){
+				printf("%s\n",inet_ntoa(*addrList[i]));
+			}

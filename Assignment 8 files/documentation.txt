@@ -1,0 +1,60 @@
+UDP : User Datagram Protocol
+ICMP : Internet Control Message Protocol
+
+Need to implement our own version of traceroute called mytraceroute.
+
+Command:
+mytraceroute <destination domain name>
+
+Uses two raw sockets:
+	S1 : To send UDP packets
+	S2 : To receive ICMP packets.
+
+Checks number of command line arguments
+Finds out the IP address corresponding to the given domain name
+Creates the two raw sockets with appropriate parameters
+Specifies socket addresses
+Binds them to local IP
+Sets the socket option on S1 to include IPHDR_INCL.
+Sends a UDP packet for traceroute using S1:
+	Sets the variable TTL = 1.
+	Creates a UDP datagram with a payload size of 52 bytes. 
+		Generate the payload with random bytes. 
+		Set the header fields correctly. 
+	In the UDP packet, set the destination port as 32164. 
+	It is likely that the IP layer of the destination server will send a ICMP Destination Unreachable message; therefore we can be sure that we have reached the target server.
+	Appends an IP header with the UDP datagram. 
+	Sets the fields of the IP headers properly, including the TTL field. 
+	The destination IP is the IP of your target server.
+	Sends the packet through the raw socket S1.
+Makes a select call to wait for a ICMP message to be received using the raw socket S2 or a timeout value of 1 sec.
+	Comes out with receive of an ICMP message in S2:
+		If it is a ICMP Destination Unreachable Message
+		needs to check the IP protocol field to identify a ICMP packet which has a protocol number 1
+		checks the ICMP header to check the type field
+		If type = 3 then it is a ICMP Destination Unreachable Message,
+			Reached to the target destination, and received the response from there.
+			Checks that the source IP address of the ICMP Destination Unreachable Message matches with our target server IP address
+			Prints 
+			Exits after closing the sockets
+		Else if it is an ICMP Time Exceeded Message 
+		checks the ICMP header to check the type field.
+		If type = 11 then it is an ICMP Time Exceeded Message,
+			Have got the response from the Layer 3 device at an intermediate hop specified by the TTL value 
+			Extract the source IP address of the ICMP Time Exceeded Message which is the IP address of that hop. 
+			Have identified the device IP at a hop specified by the TTL value.
+			Prints
+		Else if you have received any other ICMP packet, 
+			Ignores and goes back to wait on the select call with the remaining value of timeout
+		For each ICMP Time Exceeded or Destination Unreachable received:
+			measures the response time = time difference between the UDP packet sent, measured just after the sendto() function, and the reception of the ICMP Time Exceeded message or Destination Unreachable, measured after the recvfrom() call).
+		Printing Format:
+			Hop_Count(TTL_Value)	IP address	Response_Time
+			IP address above is the source IP address of the ICMP Time Exceeded Message or the ICMP Destination Unreachable Message
+	If the select call times out,
+		Sends the UDP packet again.
+		Total number of repeats with the same TTL is 3. 
+		If the timeout occurs for all the three UDP packets and we do not receive a ICMP Time Exceeded Message or ICMP Destination Unreachable message in any of them, then print it as follows:
+			Hop_Count(TTL_Value)	*	*
+		Proceeds to the next step if 3 repeats are over.
+Increments the TTL value by 1 and sends the UDP packet with this new TTL value. 

@@ -1,0 +1,19 @@
+---Command---
+1. It is a text word followed by zero or one text argument.
+2. The command and the arguments are separated by one or more spaces.
+3. The entire string is terminated by '\0'.
+4. MAXLEN of the string is 80 characters.
+
+FLOW OF OPERATION:
+1) Cc will send a command to Sc.
+2) Sc will send a 3-digit integer reply code.
+3) Action to fork Sd will be taken and some data transfer may take place; after which server will close the data connection.
+
+---TYPES OF COMMANDS---
+1. port Y  // client closes all connections and exits if any error code is received from the server.
+2. cd dir_name
+3. get file_name
+4. put file_name
+5. quit
+
+

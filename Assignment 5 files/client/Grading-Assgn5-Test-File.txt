@@ -1,0 +1,3 @@
+The objective of this assignment is to get familiar with stream sockets (also called TCP sockets) using POSIX C programming. A stream socket establishes a connection between the client and server, which remains there until one of them closes it (explicitly or implicitly on exit). The connection can be used to transfer ordered sequence of bytes between two computers (processes) reliably.
+
+Your task will be to write two programs - one program corresponding to the server process and another program corresponding to the client process. As in Assignment 1, the client process requests for the content of a file (by providing the file name) and the server process sends the contents of that file to the client.

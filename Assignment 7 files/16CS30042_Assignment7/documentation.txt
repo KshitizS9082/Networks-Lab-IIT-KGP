@@ -1,0 +1,155 @@
+The chosen string is : heyIamAStringOfLength82CharsAndIamGoingToTheReceiverSideThroughThisReliableChannel
+Length of the chosen string is : 82
+
+Drop Probability	Number of Transmissions		Avg No. of Transmissions Per Char 	Theoretical Avg. = 1/(1-p)^2 
+	0.05			89, 93, 96, 88, 89					1.110						1.108
+	0.10			107, 99, 98, 97, 102				1.227						1.235
+	0.15			107, 109, 106, 113, 110				1.329						1.384
+	0.20			125, 138, 131, 153, 133				1.659						1.562
+	0.25			148, 148, 152, 140, 151				1.802						1.778
+	0.30			146, 173, 169, 176, 179 			2.056						2.041
+	0.35			198, 192, 197, 202, 191				2.390						2.367
+	0.40			212, 236, 225, 232, 237				2.785						2.778
+	0.45			270, 266, 283, 280, 284				3.373						3.306
+	0.50			341, 309, 283, 391, 286 			3.927						4.000
+
+I have used an structure to represent a message. The structure contains a character buffer, message length and socket address (either source or destination).
+
+Character buffer : As mentioned in the assignment, the maximum size of the message can be 100 bytes, so its size is kept to be 101 bytes, one extra byte for the null character.
+
+len : It contains the length of the above message.
+
+socketaddr : It contains the sockaddr_in structure and it can denote either the source or destination's socket address.
+
+The message which is shared between the two sides consists of:
+A character : 'm' denotes APP msg and 'a' denotes ACK msg, it takes 1 byte
+Message ID : Since the total number of messages cannot cross 100, it is sufficient to store the message id just through a char, it also takes 1 byte.
+Message : Rest of the message contains the actual message.
+
+Data Structures:
+receive buffer
+	It contains: 
+		The application messages that are received.
+	It is implemented in the form of a linked list of message nodes.
+	Each message node contains:
+	1) Message structure
+		1.1) Char buffer
+		1.2) Length
+		1.3) Socket address
+	2) Next pointer for linked list implementation.
+		
+unacknowledged-message table
+	It contains: 
+		The details of all messages that have been sent but not yet acknowledged by the receiver.
+		The last sending time of the message.
+	It is implemented in the form of a linked list of unackMsgNodes.
+	Each unackMsgNode contains:
+	1) Message structure as described above
+	2) Message Id as described above
+	3) Structure to hold sending time
+	4) Next pointer for linked list implementation.
+
+received-message-id table
+	It contains:
+		All distinct message ids that are received in the socket so far.
+	It is implemented in the form of an array : 100 integers each initialised to zero. The i-th bit is set when a message with message id i is received. Since maximum 100 messages are there, maximum 100 ids can be there.
+
+Other useful details in a hierarchical manner which were helpful in the implementation:
+
+Assumptions:
+	MAX_MSG_SIZE is 100 bytes.
+	MAX_MESSAGES is 100 for each table.
+
+
+One MRP Socket uses:
+	One UDP Socket
+	One Thread X
+	Atleast these three data structures:
+		
+		receive buffer
+			It contains: 
+				The application messages that are received.
+		
+		unacknowledged-message table
+			It contains: 
+				The details of all messages that have been sent but not yet acknowledged by the receiver.
+				The last sending time of the message.
+
+		received-message-id table
+			It contains:
+				All distinct message ids that are received in the socket so far.
+
+API functions:
+	r_socket()
+		Opens a UDP socket with the socket call
+		Creates the thread X
+		Dynamically allocates space for all the tables
+		Initializes the tables
+	r_bind()
+		Binds the UDP socket with the specified address-port using the bind call.
+	r_sendto()
+		Adds a unique id to the application message.
+		Sends the message with the id using the UDP socket in a single sendto() call.
+		Updates unacknowledged-message table:
+			Stores:
+				Message
+				Message ID
+				Destination IP-port
+				Sending time
+	r_recvfrom()
+		Looks for message in the receive buffer:
+			Message found:
+				Message removed from the receive buffer.
+				Message is given to the user.
+				Function returns the number of bytes in the message returned.
+			No Message Found:
+				The user process is blocked.
+					To block, sleep() call is used to wait for some time and then we see again if a message is received.
+	r_close()
+		Closes the socket (Not immediately, first check if all the pending messages have been received at the receiving end).
+		Kills all threads and frees all memory associated with the socket.
+		If any data is there in received-message table, discard it.
+
+Thread X:
+	Waits on a select() call and comes out 
+		either to receive message from the UDP socket: 
+			calls HandleReceive():
+				checks if it is an:
+					App Message:
+						Call HandleAppMsgRecv():
+							Check received-message-id table if it is:
+								A duplicate message:
+									Message is dropped.
+								Not a duplicate message:
+									ID is removed from the message.
+									Message is added to the receive buffer.
+									Include the source IP port.
+							ACK is sent.
+					Ack Message:
+						Call HandleACKMsgRecv():
+							Msg is checked in the unacknowledged-message table:
+								Found:
+									Msg removed from the table.
+								Not found:
+									It is ignored.
+				Returns and goes to wait with Trem.
+
+		or on a timeout T:
+			calls HandleRetransmit(): 
+				Handles any retransmission of app message.
+				Scans the unacknowledged-message table to:
+					see if any of the messages' timeout period T is over
+						Yes, it is over:
+							Retransmits that message.
+							Resets the sending time entry for that message.
+						No, it is not over:
+							No action is taken.
+				Returns and goes to wait with fresh T.
+
+dropMessage(float p):
+	p is a probability
+	num = Generate a random number between 0 and 1
+	if(num<p)
+		return 1
+	else
+		return 0
